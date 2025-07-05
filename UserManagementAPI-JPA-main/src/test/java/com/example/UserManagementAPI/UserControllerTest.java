@@ -12,14 +12,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+
+import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.web.servlet.function.RequestPredicates.contentType;
+
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -37,7 +42,6 @@ public class UserControllerTest {
     private User user1;
     private User user2;
     private List<User> manyUsers;
-    private long initialUserCount;
 
     @BeforeEach
     void setUp() {
@@ -56,13 +60,56 @@ public class UserControllerTest {
                 .collect(Collectors.toList());
 
         userRepository.saveAll(manyUsers);
-        initialUserCount = userRepository.count();
     }
 
     @Test
     void testGetUserByIdFound() throws Exception {
         mockMvc.perform(get("/api/users/" + user1.getId())
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(user1.getId().intValue())))
+                .andExpect(jsonPath("$.name", is(user1.getName())))
+                .andExpect(jsonPath("$.email", is(user1.getEmail())));
     }
+
+    @Test
+    void testCreateUsers() throws Exception {
+        User newUser1 = new User("Mannepula Srinivasa", "Srinivasamannepula7@gmail.com");
+        User newUser2 = new User("Mannepula HemKiran", "hemkiran@gmail.com");
+        List<User> newUsers = Arrays.asList(newUser1, newUser2);
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newUsers)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$[0].id", notNullValue()))
+                .andExpect(jsonPath("$[0].name", is("Mannepula Srinivasa")))
+                .andExpect(jsonPath("$[0].email", is("Srinivasamannepula7@gmail.com")))
+                .andExpect(jsonPath("$[1].id", notNullValue()))
+                .andExpect(jsonPath("$[1].name", is("Mannepula HemKiran")))
+                .andExpect(jsonPath("$[1].email", is("hemkiran@gmail.com")));
+    }
+
+    @Test
+    void testDeleteUserFound() throws Exception {
+        mockMvc.perform(delete("/api/users/{id}", user1.getId())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent());
+    }
+        @Test
+    void testDeleteUserNotFound() throws Exception{
+        Long nonExistenceId=9L;
+            mockMvc.perform(delete("/api/users/{id}",nonExistenceId)
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
+    }
+
+
 }
+
+
+
+
+
+
+
